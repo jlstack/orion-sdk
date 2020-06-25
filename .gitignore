@@ -1,0 +1,17 @@
+build/
+Communications/OrionPublic.html
+Communications/OrionPublic.markdown
+Communications/OrionPublicPacket.c
+Communications/OrionPublicPacket.h
+Communications/OrionPublicProtocol.h
+Communications/compare/
+Communications/fielddecode.c
+Communications/fielddecode.h
+Communications/fieldencode.c
+Communications/fieldencode.h
+Communications/floatspecial.c
+Communications/floatspecial.h
+Communications/scaleddecode.c
+Communications/scaleddecode.h
+Communications/scaledencode.c
+Communications/scaledencode.h
