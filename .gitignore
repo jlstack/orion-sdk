@@ -1,4 +1,6 @@
 build/
+aarch64/
+amd64/
 Communications/OrionPublic.html
 Communications/OrionPublic.markdown
 Communications/OrionPublicPacket.c
@@ -15,3 +17,6 @@ Communications/scaleddecode.c
 Communications/scaleddecode.h
 Communications/scaledencode.c
 Communications/scaledencode.h
+Communications/autogen.mk
+Communications/bitfieldspecial.c
+Communications/bitfieldspecial.h
