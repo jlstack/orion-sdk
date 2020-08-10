@@ -32,16 +32,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_MODULES_DIR})
 
 include(MacroSubDirList)
 # include(GNUInstallDirs)
+
 include_directories(${PROJECT_SOURCE_DIR}/Communications)
 include_directories(${PROJECT_SOURCE_DIR}/Utils)
 
-# # Need the qt5 package to build the ProtoGen files needed in turn to
-# # build the SDK code
-# find_package(qt5-default QUIET)
-# if (NOT qt5-default_FOUND)
-#   message(WARNING "qt5-default package not found. NOT installing orion-sdk")
-#   return()
-# endif()
 
 ###############################################################################
 # Create the Orion library
@@ -57,7 +51,6 @@ set(OrionLib_SOURCES
   ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.c
   ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.c
   ${PROJECT_SOURCE_DIR}/Communications/scaledencode.c
-  ${PROJECT_SOURCE_DIR}/Communications/bitfieldspecial.c
   ${PROJECT_SOURCE_DIR}/Utils/dcm.c
   ${PROJECT_SOURCE_DIR}/Utils/earthposition.c
   ${PROJECT_SOURCE_DIR}/Utils/earthrotation.c
@@ -80,7 +73,6 @@ set(OrionLib_HEADERS
   ${PROJECT_SOURCE_DIR}/Communications/OrionPublicProtocol.h
   ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.h
   ${PROJECT_SOURCE_DIR}/Communications/scaledencode.h
-  ${PROJECT_SOURCE_DIR}/Communications/bitfieldspecial.h
   ${PROJECT_SOURCE_DIR}/Utils/Constants.h
   ${PROJECT_SOURCE_DIR}/Utils/dcm.h
   ${PROJECT_SOURCE_DIR}/Utils/earthposition.h
@@ -97,14 +89,45 @@ set(OrionLib_HEADERS
 # derived using https://gist.github.com/baiwfg2/39881ba703e9c74e95366ed422641609
 # and https://crascit.com/2017/04/18/generated-sources-in-cmake-builds/
 add_custom_command(
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fielddecode.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fieldencode.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/floatspecial.c
+  # ProtoGen outputs
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/encodable.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/encodedlength.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/enumcreator.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/fieldcoding.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/main.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolbitfield.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolcode.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolfield.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolfile.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolpacket.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolparser.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolscaling.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolstructure.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolstructuremodule.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolsupport.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/qrc_ProtoGen.cpp
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/qrc_ProtoGen.o
+  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/shuntingyard.o
+  # orion-sdk outputs
   OUTPUT ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.c
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.h
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/OrionPublicProtocol.h
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/bitfieldspecial.c
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/bitfieldspecial.h
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fielddecode.c
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fielddecode.h
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fieldencode.c
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fieldencode.h
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/floatspecial.c
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/floatspecial.h
   OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.c
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.h
   OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaledencode.c
-  COMMAND ${PROJECT_SOURCE_DIR}/GenerateOrionPublicPacket.sh
-  COMMENT "Generating source files using ProtoGen"
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaledencode.h
+  # execute commands
+  COMMAND cd ${PROJECT_SOURCE_DIR}/ProtoGen && qtchooser -run-tool=qmake -qt=qt5 ProtoGen.pro && make
+  COMMAND cd ${PROJECT_SOURCE_DIR} && make
+  COMMENT "Generating source files using ProtoGen and building orion-sdk"
   )
 
 add_library (${PROJECT_NAME} SHARED
@@ -120,6 +143,7 @@ install(TARGETS ${PROJECT_NAME}
   EXPORT ${PROJECT_NAME}-targets
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   )
 
@@ -157,41 +181,44 @@ export(
 export(PACKAGE ${PROJECT_NAME})
 
 
-#############################################################################
-# Generate the cmake configuration files for the install tree
-#############################################################################
-set(LIB_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR} CACHE PATH "Library install dir")
-set(CMAKE_CONFIG_DEST "${LIB_INSTALL_DIR}/${DEB_HOST_MULTIARCH}/${PROJECT_NAME}/cmake")
+# #############################################################################
+# # Generate the cmake configuration files for the install tree
+# #############################################################################
+# set(LIB_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR} CACHE PATH "Library install dir")
+# set(CMAKE_CONFIG_DEST "${LIB_INSTALL_DIR}/${DEB_HOST_MULTIARCH}/${PROJECT_NAME}/cmake")
 
-configure_package_config_file(
-  ${PROJECT_SOURCE_DIR}/cmake/Modules/project-config.cmake.in
-  ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config.cmake
-  INSTALL_DESTINATION ${CMAKE_CONFIG_DEST}
-)
-
-# write_basic_package_version_file(
-#   ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config-version.cmake
-#   VERSION ${PROJECT_VERSION}
-#   COMPATIBILITY SameMajorVersion
+# configure_package_config_file(
+#   ${PROJECT_SOURCE_DIR}/cmake/Modules/project-config.cmake.in
+#   ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config.cmake
+#   INSTALL_DESTINATION ${CMAKE_CONFIG_DEST}
 # )
 
-# # Install cmake config files
-# install(FILES ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config.cmake
-#   ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config-version.cmake
+# # write_basic_package_version_file(
+# #   ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config-version.cmake
+# #   VERSION ${PROJECT_VERSION}
+# #   COMPATIBILITY SameMajorVersion
+# # )
+
+# # # Install cmake config files
+# # install(FILES ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config.cmake
+# #   ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}-config-version.cmake
+# #   DESTINATION ${CMAKE_CONFIG_DEST}
+# # )
+
+# # Export project export set to the install tree
+# install(
+#   EXPORT ${PROJECT_NAME}-targets
 #   DESTINATION ${CMAKE_CONFIG_DEST}
-# )
-
-# Export project export set to the install tree
-install(
-  EXPORT ${PROJECT_NAME}-targets
-  DESTINATION ${CMAKE_CONFIG_DEST}
-  )
-
-# file(WRITE
-#   ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}.conf
-#   ${CMAKE_INSTALL_LIBDIR}
 #   )
 
+# # file(WRITE
+# #   ${PROJECT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${PROJECT_NAME}.conf
+# #   ${CMAKE_INSTALL_LIBDIR}
+# #   )
+
+# # # Export the package for use from the build-tree
+# # # (this registers the build-tree with a global CMake-registry ~/.cmake)
+# # export(PACKAGE ${PROJECT_NAME})
 
 ###############################################################################
 # Binary installation generation

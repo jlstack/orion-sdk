@@ -1,6 +1,6 @@
 build/
+x86/
 aarch64/
-amd64/
 Communications/OrionPublic.html
 Communications/OrionPublic.markdown
 Communications/OrionPublicPacket.c
