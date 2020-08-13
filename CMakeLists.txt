@@ -31,8 +31,6 @@ get_filename_component(PROJECT_MODULES_DIR ./cmake/Modules ABSOLUTE)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_MODULES_DIR})
 
 include(MacroSubDirList)
-# include(GNUInstallDirs)
-
 include_directories(${PROJECT_SOURCE_DIR}/Communications)
 include_directories(${PROJECT_SOURCE_DIR}/Utils)
 
@@ -64,27 +62,29 @@ set(OrionLib_SOURCES
   )
 
 # Headers.
-set(OrionLib_HEADERS
-  ${PROJECT_SOURCE_DIR}/Communications/fielddecode.h
-  ${PROJECT_SOURCE_DIR}/Communications/fieldencode.h
-  ${PROJECT_SOURCE_DIR}/Communications/floatspecial.h
-  ${PROJECT_SOURCE_DIR}/Communications/OrionComm.h
-  ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.h
-  ${PROJECT_SOURCE_DIR}/Communications/OrionPublicProtocol.h
-  ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.h
-  ${PROJECT_SOURCE_DIR}/Communications/scaledencode.h
-  ${PROJECT_SOURCE_DIR}/Utils/Constants.h
-  ${PROJECT_SOURCE_DIR}/Utils/dcm.h
-  ${PROJECT_SOURCE_DIR}/Utils/earthposition.h
-  ${PROJECT_SOURCE_DIR}/Utils/GeolocateTelemetry.h
-  ${PROJECT_SOURCE_DIR}/Utils/linearalgebra.h
-  ${PROJECT_SOURCE_DIR}/Utils/mathutilities.h
-  ${PROJECT_SOURCE_DIR}/Utils/OrionPublicPacketShim.h
-  ${PROJECT_SOURCE_DIR}/Utils/quaternion.h
-  ${PROJECT_SOURCE_DIR}/Utils/TrilliumPacket.h
-  ${PROJECT_SOURCE_DIR}/Utils/Types.h
-  ${PROJECT_SOURCE_DIR}/Utils/WGS84.h
-  )
+# set(OrionLib_Communications_HEADERS
+#   ${PROJECT_SOURCE_DIR}/Communications/fielddecode.h
+#   ${PROJECT_SOURCE_DIR}/Communications/fieldencode.h
+#   ${PROJECT_SOURCE_DIR}/Communications/floatspecial.h
+#   ${PROJECT_SOURCE_DIR}/Communications/OrionComm.h
+#   ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.h
+#   ${PROJECT_SOURCE_DIR}/Communications/OrionPublicProtocol.h
+#   ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.h
+#   )
+# set(OrionLib_Utils_HEADERS
+#   ${PROJECT_SOURCE_DIR}/Utils/Constants.h
+#   ${PROJECT_SOURCE_DIR}/Utils/dcm.h
+#   ${PROJECT_SOURCE_DIR}/Utils/earthposition.h
+#   ${PROJECT_SOURCE_DIR}/Utils/GeolocateTelemetry.h
+#   ${PROJECT_SOURCE_DIR}/Utils/linearalgebra.h
+#   ${PROJECT_SOURCE_DIR}/Utils/mathutilities.h
+#   ${PROJECT_SOURCE_DIR}/Utils/OrionPublicPacketShim.h
+#   ${PROJECT_SOURCE_DIR}/Utils/quaternion.h
+#   ${PROJECT_SOURCE_DIR}/Utils/TrilliumPacket.h
+#   ${PROJECT_SOURCE_DIR}/Utils/Types.h
+#   ${PROJECT_SOURCE_DIR}/Utils/WGS84.h
+#   )
+
 
 # derived using https://gist.github.com/baiwfg2/39881ba703e9c74e95366ed422641609
 # and https://crascit.com/2017/04/18/generated-sources-in-cmake-builds/
@@ -124,32 +124,71 @@ add_custom_command(
   OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.h
   OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaledencode.c
   OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaledencode.h
+  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/aarch64/libOrionComm.a
+  OUTPUT ${PROJECT_SOURCE_DIR}/Utils/aarch64/libOrionUtil.a
   # execute commands
-  COMMAND cd ${PROJECT_SOURCE_DIR}/ProtoGen && qtchooser -run-tool=qmake -qt=qt5 ProtoGen.pro && make
-  COMMAND cd ${PROJECT_SOURCE_DIR} && make
-  COMMENT "Generating source files using ProtoGen and building orion-sdk"
+  COMMAND cd ${PROJECT_SOURCE_DIR}/ProtoGen && make clean && qtchooser -run-tool=qmake -qt=qt5 ProtoGen.pro && make
+  COMMAND cd ${PROJECT_SOURCE_DIR} && make clean && make TARGET=aarch64
+  COMMENT "Generating source files using ProtoGen and building aarch64 version of orion-sdk"
   )
 
-add_library (${PROJECT_NAME} SHARED
-  ${OrionLib_SOURCES}
+
+##############################################
+# NOTE: Defining the aarch64 libraries ONLY!
+##############################################
+
+add_library(OrionComm STATIC IMPORTED GLOBAL)
+set_target_properties(OrionComm PROPERTIES
+  IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/Communications/aarch64/libOrionComm.a
+  INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/Communications
   )
+list(APPEND PROJECT_LIBS OrionComm)
+
+
+
+add_library(OrionUtil STATIC IMPORTED GLOBAL)
+set_target_properties(OrionUtil PROPERTIES
+  IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/Utils/aarch64/libOrionUtil.a
+  INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/Utils
+  )
+list(APPEND PROJECT_LIBS OrionUtil)
+
 
 
 ###############################################################################
 # Installation targets
 ###############################################################################
-install(TARGETS ${PROJECT_NAME}
-  # IMPORTANT: Add the library to the "export-set"
-  EXPORT ${PROJECT_NAME}-targets
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-  )
 
-install(FILES ${OrionLib_HEADERS}
+# We can't install imported targets
+# See: https://stackoverflow.com/questions/41175354/can-i-install-shared-imported-library
+
+# foreach(LIB_NAME ${PROJECT_TARGETS})
+  # install(TARGETS ${LIB_NAME} EXPORT ${PROJECT_NAME}-targets
+  #   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  #   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  #   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  #   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  #   )
+# endforeach()
+
+
+# Install the libraries.
+foreach(LIB_NAME ${PROJECT_LIBS})
+  get_target_property(lib-location ${LIB_NAME} IMPORTED_LOCATION)
+  install(FILES ${lib-location}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    )
+endforeach()
+
+
+# Install the header files.
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/Communications
   DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  FILES_MATCHING PATTERN "*.h"
+  )
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/Utils
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  FILES_MATCHING PATTERN "*.h"
   )
 
 
@@ -171,10 +210,10 @@ configure_package_config_file(
 # )
 
 # Export project export set to the build tree
-export(
-  EXPORT ${PROJECT_NAME}-targets
-  FILE "${PROJECT_BINARY_DIR}/${PROJECT_NAME}-targets.cmake"
-)
+# export(
+#   EXPORT ${PROJECT_NAME}-targets
+#   FILE "${PROJECT_BINARY_DIR}/${PROJECT_NAME}-targets.cmake"
+# )
 
 # Export the package for use from the build-tree
 # (this registers the build-tree with a global CMake-registry ~/.cmake)
