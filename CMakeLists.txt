@@ -36,108 +36,30 @@ include_directories(${PROJECT_SOURCE_DIR}/Utils)
 
 
 ###############################################################################
-# Create the Orion library
+# Build the Orion libraries and import them as targets.
 ###############################################################################
-# Sources.
-set(OrionLib_SOURCES
-  ${PROJECT_SOURCE_DIR}/Communications/fielddecode.c
-  ${PROJECT_SOURCE_DIR}/Communications/fieldencode.c
-  ${PROJECT_SOURCE_DIR}/Communications/floatspecial.c
-  ${PROJECT_SOURCE_DIR}/Communications/OrionComm.c
-  ${PROJECT_SOURCE_DIR}/Communications/OrionCommLinux.c
-  ${PROJECT_SOURCE_DIR}/Communications/OrionCommWindows.c
-  ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.c
-  ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.c
-  ${PROJECT_SOURCE_DIR}/Communications/scaledencode.c
-  ${PROJECT_SOURCE_DIR}/Utils/dcm.c
-  ${PROJECT_SOURCE_DIR}/Utils/earthposition.c
-  ${PROJECT_SOURCE_DIR}/Utils/earthrotation.c
-  ${PROJECT_SOURCE_DIR}/Utils/GeolocateTelemetry.c
-  ${PROJECT_SOURCE_DIR}/Utils/linearalgebra.c
-  ${PROJECT_SOURCE_DIR}/Utils/mathutilities.c
-  ${PROJECT_SOURCE_DIR}/Utils/OrionPublicPacketShim.c
-  ${PROJECT_SOURCE_DIR}/Utils/quaternion.c
-  ${PROJECT_SOURCE_DIR}/Utils/TrilliumPacket.c
-  ${PROJECT_SOURCE_DIR}/Utils/WGS84.c
-  )
 
-# Headers.
-# set(OrionLib_Communications_HEADERS
-#   ${PROJECT_SOURCE_DIR}/Communications/fielddecode.h
-#   ${PROJECT_SOURCE_DIR}/Communications/fieldencode.h
-#   ${PROJECT_SOURCE_DIR}/Communications/floatspecial.h
-#   ${PROJECT_SOURCE_DIR}/Communications/OrionComm.h
-#   ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.h
-#   ${PROJECT_SOURCE_DIR}/Communications/OrionPublicProtocol.h
-#   ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.h
-#   )
-# set(OrionLib_Utils_HEADERS
-#   ${PROJECT_SOURCE_DIR}/Utils/Constants.h
-#   ${PROJECT_SOURCE_DIR}/Utils/dcm.h
-#   ${PROJECT_SOURCE_DIR}/Utils/earthposition.h
-#   ${PROJECT_SOURCE_DIR}/Utils/GeolocateTelemetry.h
-#   ${PROJECT_SOURCE_DIR}/Utils/linearalgebra.h
-#   ${PROJECT_SOURCE_DIR}/Utils/mathutilities.h
-#   ${PROJECT_SOURCE_DIR}/Utils/OrionPublicPacketShim.h
-#   ${PROJECT_SOURCE_DIR}/Utils/quaternion.h
-#   ${PROJECT_SOURCE_DIR}/Utils/TrilliumPacket.h
-#   ${PROJECT_SOURCE_DIR}/Utils/Types.h
-#   ${PROJECT_SOURCE_DIR}/Utils/WGS84.h
-#   )
-
-
-# derived using https://gist.github.com/baiwfg2/39881ba703e9c74e95366ed422641609
-# and https://crascit.com/2017/04/18/generated-sources-in-cmake-builds/
+# See: https://cmake.org/cmake/help/latest/command/add_custom_command.html
 add_custom_command(
-  # ProtoGen outputs
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/encodable.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/encodedlength.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/enumcreator.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/fieldcoding.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/main.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolbitfield.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolcode.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolfield.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolfile.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolpacket.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolparser.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolscaling.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolstructure.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolstructuremodule.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/protocolsupport.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/qrc_ProtoGen.cpp
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/qrc_ProtoGen.o
-  OUTPUT ${PROJECT_SOURCE_DIR}/ProtoGen/shuntingyard.o
-  # orion-sdk outputs
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/OrionPublicPacket.h
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/OrionPublicProtocol.h
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/bitfieldspecial.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/bitfieldspecial.h
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fielddecode.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fielddecode.h
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fieldencode.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/fieldencode.h
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/floatspecial.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/floatspecial.h
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaleddecode.h
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaledencode.c
-  OUTPUT ${PROJECT_SOURCE_DIR}/Communications/scaledencode.h
   OUTPUT ${PROJECT_SOURCE_DIR}/Communications/aarch64/libOrionComm.a
-  OUTPUT ${PROJECT_SOURCE_DIR}/Utils/aarch64/libOrionUtil.a
-  # execute commands
-  COMMAND cd ${PROJECT_SOURCE_DIR}/ProtoGen && make clean && qtchooser -run-tool=qmake -qt=qt5 ProtoGen.pro && make
+  OUTPUT ${PROJECT_SOURCE_DIR}/Utils/aarch64/libOrionUtils.a
+  COMMAND cd ${PROJECT_SOURCE_DIR}/ProtoGen && qtchooser -run-tool=qmake -qt=qt5 ProtoGen.pro && make clean && make
   COMMAND cd ${PROJECT_SOURCE_DIR} && make clean && make TARGET=aarch64
   COMMENT "Generating source files using ProtoGen and building aarch64 version of orion-sdk"
   )
 
+# Create a target out of the library compilation result.
+# See: https://stackoverflow.com/questions/31274577/custom-target-as-a-target-library-in-cmake
+add_custom_target(orion-libcomms-build DEPENDS
+  ${PROJECT_SOURCE_DIR}/Communications/aarch64/libOrionComm.a
+  )
+add_custom_target(orion-libutils-build DEPENDS
+  ${PROJECT_SOURCE_DIR}/Utils/aarch64/libOrionUtils.a
+  )
 
-##############################################
 # NOTE: Defining the aarch64 libraries ONLY!
-##############################################
-
 add_library(OrionComm STATIC IMPORTED GLOBAL)
+add_dependencies(OrionComm orion-libcomms-build)
 set_target_properties(OrionComm PROPERTIES
   IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/Communications/aarch64/libOrionComm.a
   INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/Communications
@@ -145,10 +67,10 @@ set_target_properties(OrionComm PROPERTIES
 list(APPEND PROJECT_LIBS OrionComm)
 
 
-
 add_library(OrionUtil STATIC IMPORTED GLOBAL)
+add_dependencies(OrionUtil orion-libutils-build)
 set_target_properties(OrionUtil PROPERTIES
-  IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/Utils/aarch64/libOrionUtil.a
+  IMPORTED_LOCATION ${PROJECT_SOURCE_DIR}/Utils/aarch64/libOrionUtils.a
   INTERFACE_INCLUDE_DIRECTORIES ${PROJECT_SOURCE_DIR}/Utils
   )
 list(APPEND PROJECT_LIBS OrionUtil)
@@ -162,24 +84,11 @@ list(APPEND PROJECT_LIBS OrionUtil)
 # We can't install imported targets
 # See: https://stackoverflow.com/questions/41175354/can-i-install-shared-imported-library
 
-# foreach(LIB_NAME ${PROJECT_TARGETS})
-  # install(TARGETS ${LIB_NAME} EXPORT ${PROJECT_NAME}-targets
-  #   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  #   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  #   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-  #   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
-  #   )
-# endforeach()
-
-
 # Install the libraries.
 foreach(LIB_NAME ${PROJECT_LIBS})
   get_target_property(lib-location ${LIB_NAME} IMPORTED_LOCATION)
-  install(FILES ${lib-location}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    )
+  install(FILES ${lib-location} DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endforeach()
-
 
 # Install the header files.
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/Communications
@@ -268,7 +177,7 @@ set(CPACK_PACKAGE_VERSION "0.0.1")
 set(CPACK_GENERATOR "DEB")
 set(CPACK_PACKAGE_NAME ${PROJECT_NAME})
 set(CPACK_PACKAGE_RELEASE 1)
-set(CPACK_PACKAGE_CONTACT "Luke Stack")
+set(CPACK_PACKAGE_CONTACT "Sergio Garcia-Vergara")
 set(CPACK_PACKAGE_VENDOR "GTRI")
 set(CPACK_PACKAGING_INSTALL_PREFIX ${ROS_INSTALL_PREFIX})
 set(CPACK_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}-${CPACK_PACKAGE_RELEASE}.${CMAKE_SYSTEM_PROCESSOR}")
